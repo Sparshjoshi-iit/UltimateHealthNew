@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Expo & EAS
         uses: expo/expo-github-action@v8
@@ -21,27 +21,9 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Detect Package Manager & Install Dependencies
+      - name: Install Dependencies
         working-directory: ./frontend
-        run: |
-          echo "🔍 Detecting package manager..."
-          
-          if [ -f "bun.lockb" ]; then
-            echo "Using Bun"
-            curl -fsSL https://bun.sh/install | bash
-            bun install
-          elif [ -f "pnpm-lock.yaml" ]; then
-            echo "Using pnpm"
-            npm install -g pnpm
-            pnpm install --frozen-lockfile
-          elif [ -f "yarn.lock" ]; then
-            echo "Using Yarn"
-            npm install -g yarn
-            yarn install --frozen-lockfile
-          else
-            echo "Using npm"
-            npm ci --legacy-peer-deps
-          fi
+        run: yarn install
           
       -  name: Setup Firebase iOS Config
          working-directory: ./frontend

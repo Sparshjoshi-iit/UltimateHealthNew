@@ -5,6 +5,8 @@
       "feat: ",
       "fix: ",
       "build: ",
+      "ci: ",
+      "[CI/CD]: ",
       "refactor: ",
       "revert: ",
       "style: ",

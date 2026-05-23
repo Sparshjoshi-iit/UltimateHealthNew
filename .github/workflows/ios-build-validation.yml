@@ -32,11 +32,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "yarn"
-          cache-dependency-path: frontend/yarn.lock
 
       - name: Install JS Dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install
 
       - name: Check GoogleService-Info.plist Secret
         id: secret-check
