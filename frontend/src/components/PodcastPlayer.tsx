@@ -173,19 +173,19 @@ const PodcastPlayer = ({}) => {
     const onCancel = () => setisPlaying(false);
     const onError = () => setisPlaying(false);
 
-    const startSub = Tts.addEventListener('tts-start', onStart);
-    const progressSub = Tts.addEventListener('tts-progress', onProgress);
-    const finishSub = Tts.addEventListener('tts-finish', onFinish);
-    const cancelSub = Tts.addEventListener('tts-cancel', onCancel);
-    const errorSub = Tts.addEventListener('tts-error', onError);
+    const startSub: any = Tts.addEventListener('tts-start', onStart);
+    const progressSub: any = Tts.addEventListener('tts-progress', onProgress);
+    const finishSub: any = Tts.addEventListener('tts-finish', onFinish);
+    const cancelSub: any = Tts.addEventListener('tts-cancel', onCancel);
+    const errorSub: any = Tts.addEventListener('tts-error', onError);
 
     return () => {
       isMounted = false;
-      startSub?.remove?.();
-      progressSub?.remove?.();
-      finishSub?.remove?.();
-      cancelSub?.remove?.();
-      errorSub?.remove?.();
+      if (startSub && typeof startSub.remove === 'function') startSub.remove();
+      if (progressSub && typeof progressSub.remove === 'function') progressSub.remove();
+      if (finishSub && typeof finishSub.remove === 'function') finishSub.remove();
+      if (cancelSub && typeof cancelSub.remove === 'function') cancelSub.remove();
+      if (errorSub && typeof errorSub.remove === 'function') errorSub.remove();
     };
   }, []);
 
