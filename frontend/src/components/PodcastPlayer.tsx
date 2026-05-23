@@ -114,21 +114,6 @@ const PodcastPlayer = ({}) => {
     setCurrentPosition(position);
   };
 
-  const removeTtsSubscription = (
-    subscription: TtsSubscription | null | undefined,
-    eventName: TtsEventName,
-    handler: TtsEventHandler,
-  ) => {
-    if (subscription?.remove) {
-      subscription.remove();
-      return;
-    }
-
-    if (typeof Tts.removeEventListener === 'function') {
-      Tts.removeEventListener(eventName, handler);
-    }
-  };
-
   // Best-effort event-driven sync (react-native-tts varies by version/platform)
   useEffect(() => {
     let isMounted = true;
@@ -157,7 +142,7 @@ const PodcastPlayer = ({}) => {
       setisPlaying(true);
     };
 
-    const onProgress = (event: TtsProgressEvent) => {
+    const onProgress = (event: any) => {
       if (isSliderActiveRef.current) return;
 
       const eventPosMs: number | null =
@@ -188,19 +173,19 @@ const PodcastPlayer = ({}) => {
     const onCancel = () => setisPlaying(false);
     const onError = () => setisPlaying(false);
 
-    const startSub = Tts.addEventListener('tts-start', onStart);
-    const progressSub = Tts.addEventListener('tts-progress', onProgress);
-    const finishSub = Tts.addEventListener('tts-finish', onFinish);
-    const cancelSub = Tts.addEventListener('tts-cancel', onCancel);
-    const errorSub = Tts.addEventListener('tts-error', onError);
+    const startSub: any = Tts.addEventListener('tts-start', onStart);
+    const progressSub: any = Tts.addEventListener('tts-progress', onProgress);
+    const finishSub: any = Tts.addEventListener('tts-finish', onFinish);
+    const cancelSub: any = Tts.addEventListener('tts-cancel', onCancel);
+    const errorSub: any = Tts.addEventListener('tts-error', onError);
 
     return () => {
       isMounted = false;
-      removeTtsSubscription(startSub, 'tts-start', onStart);
-      removeTtsSubscription(progressSub, 'tts-progress', onProgress);
-      removeTtsSubscription(finishSub, 'tts-finish', onFinish);
-      removeTtsSubscription(cancelSub, 'tts-cancel', onCancel);
-      removeTtsSubscription(errorSub, 'tts-error', onError);
+      if (startSub && typeof startSub.remove === 'function') startSub.remove();
+      if (progressSub && typeof progressSub.remove === 'function') progressSub.remove();
+      if (finishSub && typeof finishSub.remove === 'function') finishSub.remove();
+      if (cancelSub && typeof cancelSub.remove === 'function') cancelSub.remove();
+      if (errorSub && typeof errorSub.remove === 'function') errorSub.remove();
     };
   }, []);
 

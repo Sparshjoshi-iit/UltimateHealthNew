@@ -1,0 +1,93 @@
+name: iOS Build Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/ios/**"
+      - "frontend/package.json"
+      - "frontend/yarn.lock"
+      - ".github/workflows/ios-build-validation.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/ios/**"
+      - "frontend/package.json"
+      - "frontend/yarn.lock"
+      - ".github/workflows/ios-build-validation.yml"
+
+jobs:
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node & Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install JS Dependencies
+        run: yarn install
+
+      - name: Check GoogleService-Info.plist Secret
+        id: secret-check
+        env:
+          GOOGLE_SERVICES_INFO_PLIST: ${{ secrets.GOOGLE_SERVICES_INFO_PLIST }}
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          PLIST_CONTENT="$GOOGLE_SERVICES_INFO_PLIST"
+          if [ -z "$PLIST_CONTENT" ]; then
+            PLIST_CONTENT="$GOOGLE_SERVICE_INFO_PLIST"
+          fi
+          if [ -z "$PLIST_CONTENT" ]; then
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping iOS build: GOOGLE_SERVICES_INFO_PLIST secret is missing."
+          else
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+            echo "$PLIST_CONTENT" > GoogleService-Info.plist
+          fi
+
+      - name: Generate Native iOS Project
+        if: steps.secret-check.outputs.has_secret == 'true'
+        run: npx expo prebuild --platform ios
+
+      - name: Setup Ruby & CocoaPods
+        if: steps.secret-check.outputs.has_secret == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ./frontend
+
+      - name: Install Pods
+        if: steps.secret-check.outputs.has_secret == 'true'
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Compile iOS Build
+        if: steps.secret-check.outputs.has_secret == 'true'
+        run: |
+          xcodebuild -workspace ios/UltimateHealth.xcworkspace \
+            -scheme UltimateHealth \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | tee build.log
+
+      - name: Artifact Upload
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: frontend/build.log

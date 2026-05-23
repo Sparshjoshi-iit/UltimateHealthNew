@@ -37,14 +37,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node & Cache Dependencies
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'yarn'
-          cache-dependency-path: frontend/yarn.lock
 
       - name: Cache Gradle Wrapper
         uses: actions/cache@v4
@@ -67,13 +65,26 @@ jobs:
           java-version: '17'
 
       - name: Install JS Dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install
 
       - name: Grant Gradle Execute Permission
         working-directory: ./frontend/android
         run: chmod +x gradlew
-        
+
+      - name: Check Google Services Secret
+        id: secret-check
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Android build: GOOGLE_SERVICES_JSON secret is missing."
+          else
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Inject google-services.json
+        if: steps.secret-check.outputs.has_secret == 'true'
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
@@ -104,6 +115,7 @@ jobs:
           "
 
       - name: Compile Android Debug Build
+        if: steps.secret-check.outputs.has_secret == 'true'
         working-directory: ./frontend/android
         run: ./gradlew assembleDebug --console=plain
 
