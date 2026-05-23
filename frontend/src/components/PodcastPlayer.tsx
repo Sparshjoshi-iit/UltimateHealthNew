@@ -114,21 +114,6 @@ const PodcastPlayer = ({}) => {
     setCurrentPosition(position);
   };
 
-  const removeTtsSubscription = (
-    subscription: TtsSubscription | null | undefined,
-    eventName: TtsEventName,
-    handler: TtsEventHandler,
-  ) => {
-    if (subscription?.remove) {
-      subscription.remove();
-      return;
-    }
-
-    if (typeof Tts.removeEventListener === 'function') {
-      Tts.removeEventListener(eventName, handler);
-    }
-  };
-
   // Best-effort event-driven sync (react-native-tts varies by version/platform)
   useEffect(() => {
     let isMounted = true;
@@ -157,7 +142,7 @@ const PodcastPlayer = ({}) => {
       setisPlaying(true);
     };
 
-    const onProgress = (event: TtsProgressEvent) => {
+    const onProgress = (event: any) => {
       if (isSliderActiveRef.current) return;
 
       const eventPosMs: number | null =
@@ -196,11 +181,11 @@ const PodcastPlayer = ({}) => {
 
     return () => {
       isMounted = false;
-      removeTtsSubscription(startSub, 'tts-start', onStart);
-      removeTtsSubscription(progressSub, 'tts-progress', onProgress);
-      removeTtsSubscription(finishSub, 'tts-finish', onFinish);
-      removeTtsSubscription(cancelSub, 'tts-cancel', onCancel);
-      removeTtsSubscription(errorSub, 'tts-error', onError);
+      startSub?.remove?.();
+      progressSub?.remove?.();
+      finishSub?.remove?.();
+      cancelSub?.remove?.();
+      errorSub?.remove?.();
     };
   }, []);
 

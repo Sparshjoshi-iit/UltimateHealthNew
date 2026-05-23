@@ -5,13 +5,12 @@
       "feat: ",
       "fix: ",
       "build: ",
-      "ci: ",
-      "[CI/CD]: ",
       "refactor: ",
       "revert: ",
       "style: ",
       "chore: ",
-      "test: "
+      "test: ",
+      "ci: "
     ]
   }
 }
