@@ -10,8 +10,7 @@
       "style: ",
       "chore: ",
       "test: ",
-      "ci: ",
-      "[CI/CD]: "
+      "ci: "
     ]
   }
 }

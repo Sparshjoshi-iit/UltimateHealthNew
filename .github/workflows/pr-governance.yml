@@ -40,7 +40,6 @@ jobs:
             ci
             chore
             revert
-            [CI/CD]
 
       - name: Enforce Minimum Label Usage
         uses: actions/github-script@v7
