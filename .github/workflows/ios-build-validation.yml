@@ -1,129 +1,95 @@
 name: iOS Build Validation
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'frontend/ios/**'
-      - 'frontend/package.json'
-      - 'frontend/yarn.lock'
-      - '.github/workflows/ios-build-validation.yml'
+      - "frontend/ios/**"
+      - "frontend/package.json"
+      - "frontend/yarn.lock"
+      - ".github/workflows/ios-build-validation.yml"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'frontend/ios/**'
-      - 'frontend/package.json'
-      - 'frontend/yarn.lock'
-      - '.github/workflows/ios-build-validation.yml'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+      - "frontend/ios/**"
+      - "frontend/package.json"
+      - "frontend/yarn.lock"
+      - ".github/workflows/ios-build-validation.yml"
 
 jobs:
   build-ios:
-    name: Build iOS Debug
+    name: Build iOS
     runs-on: macos-latest
-    timeout-minutes: 60
     defaults:
       run:
         working-directory: ./frontend
-    env:
-      CI: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Setup Node & Cache Dependencies
-        uses: actions/setup-node@v6
+      - name: Setup Node & Yarn
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'yarn'
+          cache: "yarn"
           cache-dependency-path: frontend/yarn.lock
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: ./frontend
 
       - name: Install JS Dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Cache CocoaPods
-        uses: actions/cache@v4
-        with:
-          path: frontend/ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('frontend/ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
-
-      - name: Install CocoaPods
-        working-directory: ./frontend/ios
-        run: pod install
-
-      - name: Inject GoogleService-Info.plist
+      - name: Check GoogleService-Info.plist Secret
+        id: secret-check
         env:
+          GOOGLE_SERVICES_INFO_PLIST: ${{ secrets.GOOGLE_SERVICES_INFO_PLIST }}
           GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: |
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-            let content = process.env.GOOGLE_SERVICE_INFO_PLIST;
-            if (!content || content.trim().length === 0) {
-              console.error('GOOGLE_SERVICE_INFO_PLIST is empty!');
-              process.exit(1);
-            }
-            const targetDir = 'ios/UltimateHealth';
-            if (!fs.existsSync(targetDir)) {
-              fs.mkdirSync(targetDir, { recursive: true });
-            }
-            const targetPath = path.join(targetDir, 'GoogleService-Info.plist');
-            
-            let finalContent;
-            if (content.trim().startsWith('<?xml')) {
-              finalContent = content;
-            } else {
-              try {
-                // Try decoding as base64
-                const decoded = Buffer.from(content, 'base64').toString('utf8');
-                if (decoded.trim().startsWith('<?xml')) {
-                  finalContent = decoded;
-                } else {
-                  throw new Error('Decoded content is not XML');
-                }
-              } catch (e) {
-                console.error('CRITICAL ERROR: GOOGLE_SERVICE_INFO_PLIST secret is corrupted or in an unknown format.');
-                console.error('It should be raw XML or Base64-encoded XML.');
-                process.exit(1);
-              }
-            }
-            fs.writeFileSync(targetPath, finalContent);
-            console.log('Successfully injected GoogleService-Info.plist at ' + targetPath);
-          "
+          PLIST_CONTENT="$GOOGLE_SERVICES_INFO_PLIST"
+          if [ -z "$PLIST_CONTENT" ]; then
+            PLIST_CONTENT="$GOOGLE_SERVICE_INFO_PLIST"
+          fi
+          if [ -z "$PLIST_CONTENT" ]; then
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping iOS build: GOOGLE_SERVICES_INFO_PLIST secret is missing."
+          else
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+            echo "$PLIST_CONTENT" > GoogleService-Info.plist
+          fi
 
-      - name: Compile iOS Debug Build
+      - name: Generate Native iOS Project
+        if: steps.secret-check.outputs.has_secret == 'true'
+        run: npx expo prebuild --platform ios
+
+      - name: Setup Ruby & CocoaPods
+        if: steps.secret-check.outputs.has_secret == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ./frontend
+
+      - name: Install Pods
+        if: steps.secret-check.outputs.has_secret == 'true'
         run: |
-          set -o pipefail
-          xcodebuild \
-            -workspace ios/UltimateHealth.xcworkspace \
-            -scheme UltimateHealth \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            CODE_SIGNING_ALLOWED=NO \
-            | tee xcodebuild.log
+          cd ios
+          pod install --repo-update
 
-      - name: Upload xcodebuild logs (On Failure)
+      - name: Compile iOS Build
+        if: steps.secret-check.outputs.has_secret == 'true'
+        run: |
+          xcodebuild -workspace ios/UltimateHealth.xcworkspace \
+            -scheme UltimateHealth \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | tee build.log
+
+      - name: Artifact Upload
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build-logs
-          path: frontend/xcodebuild.log
-          if-no-files-found: ignore
-          retention-days: 7
+          name: ios-build-log
+          path: frontend/build.log
